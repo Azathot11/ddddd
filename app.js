@@ -1,12 +1,18 @@
 const path = require('path');
+const fs = require('fs')
 
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan')
 
 const feedRoutes = require('./routes/feed');
 const authRoutes = require('./routes/auth');
+
+const accessLogStream = fs.createWriteStream(path.join(__dirname,'access.log'),{flags:'a'})
 
 const app = express();
 
@@ -34,6 +40,9 @@ const fileFilter = (req, file, cb) => {
 };
 
 // app.use(bodyParser.urlencoded()); // x-www-form-urlencoded <form>
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+app.use(compression());
+app.use(morgan('combined',{stream:accessLogStream}));
 app.use(bodyParser.json()); // application/json
 app.use(multer({storage:fileStorage,fileFilter: fileFilter}).single('image'));
 app.use('/images',express.static(path.join(__dirname,'images')));
@@ -61,10 +70,10 @@ app.use((error, req, res, next) => {
 
 mongoose
   .connect(
-    'mongodb+srv://Azathot111:Azathot111@cluster0.atxuw.mongodb.net/messages?retryWrites=true&w=majority'
+    `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@cluster0.atxuw.mongodb.net/${process.env.MONGO_DEFAULT_DATABASE}`
   )
   .then(result => {
-    const server = app.listen(8080);
+    const server = app.listen(process.env.PORT || 8080);
     const io = require('./socket').init(server);
     io.on('connection', socket => {
       console.log('Client connected');
